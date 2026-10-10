@@ -108,8 +108,10 @@
 
   /* ---------- responsive hero ---------- */
   .hero-bg{
-    background:#060d10 url('hero.webp') center/cover no-repeat;
+    background:#060d10 url('hero.webp') center center/cover no-repeat;
+    border-bottom:1px solid #060d10; /* kills any sub-pixel seam */
   }
+  .sky{margin-bottom:-1px;} /* overlap into content to hide any gap */
   .hero-bg .hero{
     background:linear-gradient(180deg, rgba(6,13,16,.45) 0%, rgba(6,13,16,.25) 45%, rgba(6,13,16,.65) 100%);
   }
