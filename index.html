@@ -107,6 +107,13 @@
   .tag.adults{background:transparent;border-color:var(--faint);color:var(--faint)}
   .tag.kids{color:var(--green);border-color:rgba(143,214,148,.4)}
   .tag.hard{color:var(--mist);border-color:rgba(168,195,201,.4)}
+  .scorePill{font-size:13px;font-weight:800;background:rgba(168,195,201,.08);border:1px solid var(--mist);
+    color:var(--mist);border-radius:8px;padding:4px 10px;white-space:nowrap;font-family:var(--mono);flex:none}
+  details.lh{font-size:13.5px;color:var(--muted);margin-top:4px}
+  details.lh summary{cursor:pointer;color:var(--mist);font-weight:600}
+  details.lh ul{margin:6px 0;padding-left:20px}
+  details.lh .lv{color:var(--green)}
+  details.lh .ht{color:#f0b9a8}
   .loading{text-align:center;padding:3rem;font-style:italic;color:var(--muted)}
   footer{text-align:center;padding:2.5rem 1rem;font-size:13px;color:var(--faint)}
   footer a{color:var(--muted)}
@@ -324,6 +331,13 @@ const SITES = [{"name":"The Cud Life","loc":"Harrogate","lat":53.9921491,"lon":-
   .tag.adults{background:transparent;border-color:var(--faint);color:var(--faint)}
   .tag.kids{color:var(--green);border-color:rgba(143,214,148,.4)}
   .tag.hard{color:var(--mist);border-color:rgba(168,195,201,.4)}
+  .scorePill{font-size:13px;font-weight:800;background:rgba(168,195,201,.08);border:1px solid var(--mist);
+    color:var(--mist);border-radius:8px;padding:4px 10px;white-space:nowrap;font-family:var(--mono);flex:none}
+  details.lh{font-size:13.5px;color:var(--muted);margin-top:4px}
+  details.lh summary{cursor:pointer;color:var(--mist);font-weight:600}
+  details.lh ul{margin:6px 0;padding-left:20px}
+  details.lh .lv{color:var(--green)}
+  details.lh .ht{color:#f0b9a8}
   .loading{text-align:center;padding:3rem;font-style:italic;color:var(--muted)}
   footer{text-align:center;padding:2.5rem 1rem;font-size:13px;color:var(--faint)}
   footer a{color:var(--muted)}
@@ -525,10 +539,47 @@ $('#go').onclick = async () => {
   } finally { btn.disabled = false; btn.textContent = 'Find my pitch →'; }
 };
 
+function loveHate(s) {
+  const loves = [], hates = [];
+  if (s.reviews) loves.push(`Rated ${s.reviews}`);
+  if (s.standout) loves.push('Wild Skies standout pick');
+  if (s.dark) loves.push('Dark-sky location');
+  if (s.pub && s.pub !== 'None confirmed within a 30-min walk') loves.push(`Pub nearby: ${s.pub}`);
+  if (s.warn) hates.push(s.warn);
+  if (!s.price) hates.push('No price listed — check before booking');
+  if (!loves.length && !hates.length) return '';
+  return `<details class="lh"><summary>What people love &amp; hate</summary>`
+    + (loves.length ? `<div><b class="lv">Loved</b><ul>${loves.map(x => `<li>${x}</li>`).join('')}</ul></div>` : '')
+    + (hates.length ? `<div><b class="ht">Hated</b><ul>${hates.map(x => `<li>${x}</li>`).join('')}</ul></div>` : '')
+    + `</details>`;
+}
+// Personal shortlist (localStorage)
+function getShortlist() { try { return JSON.parse(localStorage.getItem('ws_roam_shortlist') || '[]'); } catch(e) { return []; } }
+function isShortlisted(name) { return getShortlist().includes(name); }
+function toggleShortlist(name) {
+  let sl = getShortlist();
+  sl = sl.includes(name) ? sl.filter(n => n !== name) : [...sl, name];
+  localStorage.setItem('ws_roam_shortlist', JSON.stringify(sl));
+  document.querySelectorAll('#results .card').forEach(() => {});
+  $('#go').click(); // re-render
+}
 function render(list) {
   let html = `<div class="count">${list.length} site${list.length === 1 ? '' : 's'} found</div>`;
   html += `<div class="row" style="margin-bottom:12px;"><button class="chip ${mapOn ? 'toggle-on' : ''}" id="mapToggle">${mapOn ? '🗺 Hide map' : '🗺 Show map'}</button></div>`;
   if (list.length && mapOn) html += `<div id="map"></div>`;
+  // Match score: how well each site fits (distance 60%, data richness 40%)
+  const maxD = mode === 'time' ? +document.getElementById('timeSlider').value : +document.getElementById('distSlider').value;
+  list.forEach(s => {
+    const dScore = Math.max(0, 60 * (1 - (mode === 'time' ? s.mins : s.miles) / maxD));
+    let rScore = 0;
+    if (s.facts && s.facts.length) rScore += 10;
+    if (s.reviews) rScore += 10;
+    if (s.price) rScore += 8;
+    if (s.pub && s.pub !== 'None confirmed within a 30-min walk') rScore += 6;
+    if (s.desc) rScore += 6;
+    s.match = Math.round(dScore + rScore);
+    return s;
+  });
   list.forEach(s => {
     const tags = [];
     if (s.club) tags.push(`<span class="tag club">⛺ ${{CAMC:'CAMC',CCC:'C&CC',CL:'Cert. Loc.',CE:'Cert. Site'}[s.club] || s.club}</span>`);
@@ -542,7 +593,7 @@ function render(list) {
       facts = '<ul class="facts">' + s.facts.map(f => `<li><b>${f[0]}:</b> ${f[1]}</li>`).join('') + '</ul>';
     }
     html += `<div class="card"><div class="cbody">`
-      + `<div class="top"><div><h3>${s.name}</h3><div class="loc">${s.loc}</div></div></div>`
+      + `<div class="top"><div><h3>${s.name}</h3><div class="loc">${s.loc}</div></div><span class="scorePill" title="Match score: distance + listing detail, out of 100">${s.match}</span></div>`
       + `<div class="dist">${mode === 'time' ? '≈ ' + fmtDrive(s.mins) + ' drive' : s.miles.toFixed(0) + ' miles'} <small>(${mode === 'time' ? s.miles.toFixed(0) + ' mi' : '≈ ' + fmtDrive(s.mins) + ' drive'})</small></div>`
       + `<div class="tags">${tags.join('')}</div>`
       + (s.desc ? `<p class="desc">${s.desc}</p>` : '')
@@ -551,6 +602,8 @@ function render(list) {
       + (s.price ? `<p class="pub">💷 <b>${s.price}</b></p>` : '')
       + (s.pub && s.pub !== 'None confirmed within a 30-min walk' ? `<p class="pub">🍺 <b>${s.pub}</b></p>` : '')
       + (s.warn ? `<p class="warn">⚠️ ${s.warn}</p>` : '')
+      + loveHate(s)
+      + `<div class="row" style="margin-top:6px;"><button class="chip ${isShortlisted(s.name) ? 'toggle-on' : ''}" onclick="toggleShortlist('${s.name.replace(/'/g, "\\'")}')">${isShortlisted(s.name) ? '★ Shortlisted' : '☆ Shortlist'}</button></div>`
       + `</div></div>`;
   });
   if (!list.length) html += `<div class="panel"><h2>No pitches in range</h2><p style="color:var(--muted)">Try widening the drive time or distance — or ease off the filters.</p></div>`;
