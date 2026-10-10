@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Wild Skies — Roam Edition</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Zilla+Slab:wght@400;600;700&family=Oswald:wght@400;500;600&display=swap');
+  :root {
+    --ink: #1a1611; --paper: #f5f1e8; --paper2: #efe8d8;
+    --green: #2d5a3d; --gold: #c9a227; --rust: #8b4513;
+    --night: #0d1b2a;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Zilla Slab', serif; background: var(--paper); color: var(--ink); line-height: 1.5; }
+  header {
+    background: linear-gradient(135deg, #0d1b2a 0%, #1b3a4b 60%, #2d5a3d 100%);
+    color: #f5f1e8; padding: 2rem 1rem 1.5rem; text-align: center;
+    border-bottom: 4px solid var(--gold);
+  }
+  header h1 { font-family: 'Oswald', sans-serif; font-size: 2.2rem; letter-spacing: .15em; text-transform: uppercase; }
+  header h1 .roam { color: var(--gold); }
+  header p { opacity: .85; font-size: .95rem; margin-top: .3rem; }
+  .wrap { max-width: 900px; margin: 0 auto; padding: 1rem; }
+  .panel { background: #fffdf7; border: 2px solid var(--ink); padding: 1.2rem; margin-bottom: 1rem; box-shadow: 4px 4px 0 rgba(26,22,17,.15); }
+  .panel h2 { font-family: 'Oswald', sans-serif; font-size: 1rem; letter-spacing: .1em; text-transform: uppercase; margin-bottom: .7rem; color: var(--green); }
+  label.lbl { display: block; font-size: .8rem; text-transform: uppercase; letter-spacing: .08em; margin-bottom: .3rem; opacity: .7; }
+  input[type=text] { width: 100%; padding: .7rem; font-family: inherit; font-size: 1rem; border: 2px solid var(--ink); background: #fff; }
+  .row { display: flex; gap: .6rem; flex-wrap: wrap; align-items: center; margin-top: .6rem; }
+  .chip { font-family: 'Oswald', sans-serif; padding: .45rem .9rem; border: 2px solid var(--ink); background: #fff; cursor: pointer; font-size: .85rem; letter-spacing: .05em; text-transform: uppercase; }
+  .chip.on { background: var(--ink); color: var(--paper); }
+  .chip.toggle-on { background: var(--green); border-color: var(--green); color: #fff; }
+  button.go { font-family: 'Oswald', sans-serif; width: 100%; padding: .9rem; font-size: 1.1rem; letter-spacing: .12em; text-transform: uppercase; background: var(--green); color: #fff; border: 2px solid var(--ink); cursor: pointer; margin-top: 1rem; }
+  button.go:hover { background: #234a31; }
+  button.go:disabled { opacity: .5; cursor: wait; }
+  input[type=range] { width: 100%; accent-color: var(--green); }
+  .slider-val { font-family: 'Oswald', sans-serif; font-size: 1.4rem; color: var(--green); }
+  .seg { display: flex; border: 2px solid var(--ink); }
+  .seg button { flex: 1; font-family: 'Oswald', sans-serif; padding: .5rem; border: none; background: #fff; cursor: pointer; font-size: .85rem; text-transform: uppercase; letter-spacing: .05em; }
+  .seg button.on { background: var(--ink); color: var(--paper); }
+  .seg button + button { border-left: 2px solid var(--ink); }
+  #map { height: 320px; border: 2px solid var(--ink); margin-bottom: 1rem; }
+  .card { background: #fffdf7; border: 2px solid var(--ink); padding: 1rem; margin-bottom: .8rem; }
+  .card h3 { font-size: 1.15rem; margin-bottom: .2rem; }
+  .card .meta { font-size: .85rem; opacity: .75; margin-bottom: .4rem; }
+  .card .dist { font-family: 'Oswald', sans-serif; color: var(--green); font-size: 1.05rem; }
+  .tag { display: inline-block; font-size: .72rem; font-family: 'Oswald', sans-serif; text-transform: uppercase; letter-spacing: .06em; padding: .15rem .5rem; border: 1.5px solid var(--ink); margin: .15rem .15rem .15rem 0; }
+  .tag.club { background: var(--gold); }
+  .tag.adults { background: var(--ink); color: var(--paper); }
+  .tag.kids { background: var(--green); color: #fff; }
+  .tag.hard { background: #d4e4d4; }
+  .loading { text-align: center; padding: 2rem; font-style: italic; opacity: .7; }
+  .count { font-family: 'Oswald', sans-serif; margin: 1rem 0 .5rem; font-size: 1rem; }
+  footer { text-align: center; padding: 2rem 1rem; font-size: .8rem; opacity: .6; }
+  footer a { color: inherit; }
+  .note { font-size: .82rem; opacity: .7; margin-top: .5rem; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Wild Skies <span class="roam">Roam</span></h1>
+  <p>All-year campsites · find your pitch from wherever you are</p>
+</header>
+
+<div class="wrap">
+  <div class="panel">
+    <h2>📍 Your location</h2>
+    <label class="lbl" for="addr">Street address, town, or postcode</label>
+    <input type="text" id="addr" placeholder="e.g. DN21 4JT, or York" autocomplete="off">
+    <div id="acBox" style="display:none; border:2px solid var(--ink); border-top:none; background:#fff; max-height:180px; overflow-y:auto;"></div>
+    <div class="row">
+      <button class="chip" id="locBtn">◉ Detect my location</button>
+    </div>
+  </div>
+
+  <div class="panel">
+    <h2>📏 How far?</h2>
+    <div class="seg" id="modeSeg" style="margin-bottom:.8rem;">
+      <button data-mode="time" class="on">Drive time</button>
+      <button data-mode="dist">Distance</button>
+    </div>
+    <div id="timeCtl">
+      <label class="lbl">Maximum drive <span class="slider-val" id="timeVal">2 hrs</span></label>
+      <input type="range" id="timeSlider" min="30" max="240" step="15" value="120">
+      <div class="row" style="justify-content:space-between; font-size:.75rem; opacity:.6;"><span>30 min</span><span>4 hrs</span></div>
+    </div>
+    <div id="distCtl" style="display:none;">
+      <label class="lbl">Maximum distance <span class="slider-val" id="distVal">100 miles</span></label>
+      <input type="range" id="distSlider" min="10" max="200" step="10" value="100">
+      <div class="row" style="justify-content:space-between; font-size:.75rem; opacity:.6;"><span>10 mi</span><span>200 mi</span></div>
+    </div>
+    <p class="note">Drive times are estimated from straight-line distance at ~40 mph — treat as a guide, not gospel.</p>
+  </div>
+
+  <div class="panel">
+    <h2>⛺ Who's going?</h2>
+    <div class="seg" id="whoSeg">
+      <button data-who="all" class="on">Everyone</button>
+      <button data-who="adults">Adults only</button>
+      <button data-who="kids">Family friendly</button>
+    </div>
+    <div class="row" style="margin-top:.8rem;">
+      <button class="chip toggle-on" id="clubToggle">⛺ Club sites included</button>
+      <button class="chip toggle-on" id="hardToggle">Hard standing only</button>
+    </div>
+  </div>
+
+  <button class="go" id="go">Find my pitch →</button>
+
+  <div id="results" style="margin-top:1rem;"></div>
+</div>
+
+<footer>
+  Wild Skies Roam Edition · <a href="https://ian-cleary.github.io/all-year-campsites/">Harrogate</a> · <a href="https://ian-cleary.github.io/all-year-campsites-cheltenham/">Cheltenham</a> · <a href="https://ian-cleary.github.io/all-year-campsites-manton/">Manton</a><br>
+  <a href="mailto:ian.cleary@gmail.com?subject=Wild%20Skies%20Roam%20bug">Report a bug 🐞</a>
+</footer>
+
+<script>
+const SITES = [{"name":"The Cud Life","loc":"Harrogate","driveHint":"~10\u201315 min","adults":false,"kids":true,"club":null,"hard":true,"campervan":true,"motorhome":true,"pub":"The Knox, Harrogate \u00b7 25 min walk \u00b7 serves food","desc":"Working farm on the edge of Harrogate with the HAY caf\u00e9 on site. Sixteen pitches, properly quiet after 10:30pm \u2014 the closest proper escape on this list.","area":"harrogate","lat":53.9921491,"lon":-1.5391039},{"name":"Oxen Close Farm","loc":"Nidderdale","driveHint":"~15\u201320 min","adults":false,"kids":true,"club":null,"hard":true,"campervan":true,"motorhome":true,"pub":"The Wellington Inn, Darley \u00b7 ~30 min walk (footpath) \u00b7 serves food","desc":"C&CC certificated site in the Nidderdale AONB \u2014 inside the Nidderdale Dark Sky Reserve. Grass and hardstanding, tents to motorhomes.","area":"harrogate","lat":54.0349099,"lon":-1.6338455},{"name":"Unthank Farm","loc":"Leyburn, Wensleydale","driveHint":"~45\u201350 min","adults":false,"kids":true,"club":null,"hard":true,"campervan":true,"motorhome":true,"pub":"The Wyvill Arms \u00b7 25 min walk \u00b7 serves food","desc":"Working farm in Wensleydale with a new shower/toilet block and \u201cSunset Meadows\u201d tent camping.","area":"harrogate","lat":54.3113562,"lon":-1.8217272},{"name":"Lundholme Farm","loc":"Ingleton","driveHint":"~1h","adults":false,"kids":true,"club":null,"hard":true,"campervan":true,"motorhome":true,"pub":"The Marton Arms, Thornton-in-Lonsdale \u00b7 ~10 min walk \u00b7 serves food","desc":"250-acre working farm with Ingleborough views, inside the Yorkshire Dales Dark Sky Reserve.","area":"harrogate","lat":54.1539026,"lon":-2.4679284},{"name":"Aysgarth Camping","loc":"Wensleydale","driveHint":"~1h","adults":false,"kids":true,"club":null,"hard":true,"campervan":true,"motorhome":true,"pub":"The George and Dragon Inn, Aysgarth \u00b7 ~15 min walk \u00b7 serves food","desc":"Owner\u2019s site says \u201copen all year round\u201d. Wensleydale setting, dogs welcome, big 12\u00d712m electric pitches.","area":"harrogate","lat":54.2940737,"lon":-1.9975463},{"name":"Bolbec Manor","loc":"Shotley Bridge, Co Durham","driveHint":"~1h25","adults":false,"kids":true,"club":null,"hard":true,"campervan":true,"motorhome":true,"pub":"The Manor House Inn \u00b7 2 min walk \u00b7 serves food","desc":"\u201cWhat a beautiful quirky site\u201d (Pitchup) \u2014 next to the Manor House Inn with a quiet woodland/valley feel.","area":"harrogate","lat":54.86996,"lon":-1.8592478},{"name":"Castlerigg Farm","loc":"Keswick","driveHint":"~1h50","adults":false,"kids":true,"club":null,"hard":true,"campervan":true,"motorhome":true,"pub":"Twa Dogs Inn \u00b7 ~20 min walk","desc":"Panoramic fell views a couple of miles from Keswick \u2014 one of the best-known views-from-your-pitch sites in the Lakes.","area":"harrogate","lat":54.5917728,"lon":-3.1096476},{"name":"Hadrian\u2019s Wall Campsite","loc":"Melkridge, Haltwhistle","driveHint":"~1h50","adults":false,"kids":true,"club":null,"hard":true,"campervan":true,"motorhome":true,"pub":"Twice Brewed Inn \u00b7 ~25 min walk \u00b7 serves food","desc":"Small, secluded family-run site less than a mile from the most dramatic stretches of Hadrian\u2019s Wall \u2014 \u201cmagnificent unspoilt landscapes\u201d made for walks, Roman forts and stargazing. Travellers\u2019 Choice 2023.","area":"harrogate","lat":54.9696313,"lon":-2.4595098},{"name":"Herding Hill Farm","loc":"Haltwhistle, Northumberland","driveHint":"~1h50","adults":false,"kids":true,"club":null,"hard":true,"campervan":true,"motorhome":true,"pub":"Milecastle Inn \u00b7 10 min walk \u00b7 serves food","desc":"The only 5-star site in Hadrian\u2019s Wall country \u2014 Dark Sky Friendly, with alpacas, donkeys, a petting farm and pizzas delivered to your pitch.","area":"harrogate","lat":54.9818344,"lon":-2.4489642},{"name":"Bredon Vale Caravan and Camping","loc":"Norton, Worcestershire","driveHint":"~35 min","adults":false,"kids":true,"club":null,"hard":true,"campervan":true,"motorhome":true,"pub":"Norton Grange \u00b7 ~15 min walk","desc":"Orchard campsite of 100+ ancient and local fruit trees overlooking Bredon Hill and the Malverns; heated amenity block, natural kids' play area, family room, honesty shop; log pods, bell tent and a vintage 70s caravan for glampers.","area":"cheltenham","lat":52.1590372,"lon":-2.1792954},{"name":"Woodside Country Park","loc":"Ledbury, Herefordshire","driveHint":"~40 min","adults":false,"kids":true,"club":null,"hard":true,"campervan":true,"motorhome":true,"pub":"The Full Pitcher \u00b7 ~30 min walk","desc":"Family-run conservation site (David Bellamy Gold) with lakes for wild swimming, kayaking and fishing, kids' playground and a sauna; spacious four-acre Cider Mill Field for tents, caravans and motorhomes.","area":"cheltenham","lat":52.0415578,"lon":-2.465042},{"name":"West End Farm Campsite","loc":"Arlingham, Gloucestershire","driveHint":"~30 min","adults":false,"kids":true,"club":null,"hard":true,"campervan":true,"motorhome":true,"pub":"The Red Lion, Arlingham \u00b7 10 min walk \u00b7 serves food","desc":"Tiny 15-pitch campsite on an organic cattle farm in the Severn's horseshoe bend, with a weekend farmyard cafe, community pub walk and riverside walks.","area":"cheltenham","lat":51.7981781,"lon":-2.4182218},{"name":"Highlands Campsite","loc":"Whitebrook, Monmouthshire","driveHint":"~55 min","adults":false,"kids":true,"club":null,"hard":true,"campervan":true,"motorhome":true,"pub":"The Lion Inn, Trellech \u00b7 ~40 min walk \u00b7 serves food","desc":"Tiny 15-pitch smallholding campsite deep in the Wye Valley with panoramic valley views, campfires, basic-but-spotless facilities and ancient-woodland walks straight from the gate.","area":"cheltenham","lat":51.7556583,"lon":-2.6750052},{"name":"Forest and Wye Valley Camping","loc":"St Briavels, Gloucestershire","driveHint":"~55 min","adults":false,"kids":true,"club":null,"hard":true,"campervan":true,"motorhome":true,"pub":"The George Inn, St Briavels \u00b7 20 min walk \u00b7 serves food","desc":"Family-run touring site between the Forest of Dean and the Wye Valley with a modern heated shower block, generous pitches, an on-site shop, a children's play area and resident goats.","area":"cheltenham","lat":51.7373356,"lon":-2.6398283},{"name":"Gloucester Camping at Court Farm","loc":"Twigworth, Gloucestershire","driveHint":"~20 min","adults":false,"kids":true,"club":null,"hard":true,"campervan":true,"motorhome":true,"pub":"The Bullfinch \u00b7 ~20 min walk","desc":"Small family-friendly site four miles north of Gloucester where the owners planted hundreds of trees a decade ago \u2014 shady, level pitches with a bus stop to Cheltenham at the gate.","area":"cheltenham","lat":51.8988834,"lon":-2.2260612},{"name":"Cherry Tree Glamping And Campsite","loc":"The Camp, Stroud, Gloucestershire","driveHint":"~25 min","adults":false,"kids":true,"club":null,"hard":false,"campervan":true,"motorhome":true,"pub":"The Woolpack Inn, Slad \u00b7 serves food","desc":"Peaceful tree-lined site in the Slad Valley with an on-site cafe, campfires allowed and Cotswold Way walks from the gate.","area":"cheltenham","lat":51.7827917,"lon":-2.1267998},{"name":"Marlbank Inn","loc":"Welland, Worcestershire","driveHint":"~40 min","adults":false,"kids":true,"club":null,"hard":true,"campervan":true,"motorhome":true,"pub":"The Marlbank Inn (on site) \u00b7 serves food","desc":"Quirky country pub (North Indian kitchen, cask ales) beneath the Malvern Hills with 22 grass touring and tent pitches open all year; bar, restaurant and evening entertainment on site.","area":"cheltenham","lat":52.0583141,"lon":-2.2981546},{"name":"Rushmere Farm Campsite","loc":"Coleford, Gloucestershire","driveHint":"~50 min","adults":false,"kids":true,"club":null,"hard":false,"campervan":true,"motorhome":true,"pub":"The Angel, Coleford \u00b7 ~12 min walk \u00b7 serves food","desc":"Family-run farm campsite half a mile from Coleford with horses, free-roaming chickens, a log-cabin shower block with radiators for cold months, and big open grassy fields.","area":"cheltenham","lat":51.7938786,"lon":-2.6183238},{"name":"Droitwich Spa Marina Caravan and Camping Park","loc":"Droitwich Spa, Worcestershire","driveHint":"~50 min","adults":false,"kids":true,"club":null,"hard":true,"campervan":true,"motorhome":true,"pub":"The Eagle & Sun \u00b7 ~20 min walk \u00b7 serves food","desc":"15-pitch family-run site on a canal marina with an orchard; 12 fully serviced hardstanding pitches, two new shower/toilet pods, and a small children's play area opposite the marina entrance.","area":"cheltenham","lat":52.26851,"lon":-2.1486075},{"name":"Burhope Farm Campsite","loc":"Orcop, Herefordshire","driveHint":"~55 min","adults":true,"kids":false,"club":null,"hard":true,"campervan":true,"motorhome":true,"pub":"The Fountain Inn, Orcop Hill \u00b7 ~35 min walk \u00b7 serves food","desc":"Quiet working-farm campsite on the Welsh border at the foot of the Black Mountains with a centrally-heated toilet and shower block, fire bowls, and a lake for fishing and wild swimming.","area":"cheltenham","lat":51.9317382,"lon":-2.7653335},{"name":"Trippenkennett Farm","loc":"Three Ashes, Herefordshire","driveHint":"~50 min","adults":false,"kids":true,"club":null,"hard":true,"campervan":true,"motorhome":true,"pub":"The Harewood End Inn \u00b7 ~30 min walk \u00b7 serves food","desc":"Peaceful working farm with two stocked fishing lakes, level grass and hardstanding pitches, heated toilet and shower block, fire pits and wood on site; Wye Valley and Forest of Dean 10 minutes away.","area":"cheltenham","lat":51.9043343,"lon":-2.70769},{"name":"Fir Tree Farm Caravan Site","loc":"Warmington, Oxfordshire","driveHint":"~1h","adults":false,"kids":true,"club":null,"hard":true,"campervan":true,"motorhome":true,"pub":"The Plough Inn, Warmington \u00b7 ~20 min walk","desc":"Quiet, very secluded hilltop farm site with outstanding views, two fishing lakes and an on-site falconry centre \u2014 open all year round.","area":"cheltenham","lat":52.1180884,"lon":-1.3910668},{"name":"Mendip Ski Camp","loc":"Sandford, Somerset","driveHint":"~1h10","adults":false,"kids":true,"club":null,"hard":true,"campervan":true,"motorhome":true,"pub":"The Railway Inn, Sandford \u00b7 ~20 min walk \u00b7 serves food","desc":"Peaceful back-to-basics family site in the Mendip Hills AONB next to a dry ski slope; campfires allowed, non-electric grass and hardstanding pitches, wildlife and big skies.","area":"cheltenham","lat":51.3320016,"lon":-2.8295584},{"name":"Pitfield Farm Certificated Site","loc":"Pembridge, Leominster, Herefordshire","driveHint":"~1h10","adults":false,"kids":true,"club":null,"hard":true,"campervan":true,"motorhome":true,"pub":"The New Inn, Pembridge \u00b7 ~20 min walk \u00b7 serves food","desc":"Tiny working-farm site (5 vans + tents) in an orchard near Pembridge, with flushing toilets and hot showers, kids' playground, dog walk and fire pits; Camping and Caravanning Club certificated site.","area":"cheltenham","lat":52.2170333,"lon":-2.8953246},{"name":"Broadway Cottage Caravan and Camping","loc":"Cheddar, Somerset","driveHint":"~1h10","adults":false,"kids":true,"club":null,"hard":true,"campervan":true,"motorhome":true,"pub":"The Kings Head, Cheddar \u00b7 ~15 min walk \u00b7 serves food","desc":"Small family-run 5-acre site in the heart of the Mendips, 1.5 miles from Cheddar Gorge with views to the reservoir; newly built toilet/shower block and generous pitches.","area":"cheltenham","lat":51.2753365,"lon":-2.7766545},{"name":"Petruth Paddocks","loc":"Cheddar, Somerset","driveHint":"~1h10","adults":false,"kids":true,"club":null,"hard":true,"campervan":true,"motorhome":true,"pub":"The Bath Arms, Cheddar \u00b7 ~15 min walk \u00b7 serves food","desc":"Free-range, live-and-let-live family campsite a short walk from Cheddar village, with quirky glamping touches, campfires encouraged and a playground for kids.","area":"cheltenham","lat":51.2669422,"lon":-2.7747165},{"name":"St Peter's Farm Campsite","loc":"North Moreton, Oxfordshire","driveHint":"~1h20","adults":false,"kids":true,"club":null,"hard":true,"campervan":true,"motorhome":true,"pub":"The Bear of North Moreton \u00b7 10 min walk \u00b7 serves food","desc":"Secluded family-run working farm in a pretty village, with big pitches, a kids' play area, campfires allowed and two walkable pubs.","area":"cheltenham","lat":51.6075205,"lon":-1.1927697},{"name":"The Rodney Stoke Caravan and Camping Park","loc":"Rodney Stoke, Somerset","driveHint":"~1h20","adults":true,"kids":false,"club":null,"hard":true,"campervan":true,"motorhome":true,"pub":"The Rodney Stoke Inn \u00b7 2 min walk \u00b7 serves food","desc":"Tiny adults-only touring park at the foot of the Mendips between Cheddar and Wells, with a pub outside the gate, a cider barn a stroll away and immaculate facilities.","area":"cheltenham","lat":51.2479877,"lon":-2.7369072},{"name":"Whitney Bridge Camping","loc":"Whitney-on-Wye, Herefordshire","driveHint":null,"adults":false,"kids":true,"club":null,"hard":false,"campervan":false,"motorhome":false,"pub":null,"desc":"Very small, quiet riverside campsite on the banks of the Wye at a 1779 toll bridge; two toilets and two hot showers, fire pit, canoe launch, fishing. Open 365 days.","area":"cheltenham","lat":52.1200196,"lon":-3.0682535},{"name":"The Limes Campsite","loc":"Great Steeping, Lincolnshire","driveHint":"~1h10","adults":false,"kids":true,"club":null,"hard":true,"campervan":true,"motorhome":true,"pub":"The Red Lion, Great Steeping \u00b7 ~15 min walk \u00b7 serves food","desc":"Tiny 15-pitch lakeside site near Spilsby where campfires are allowed, with toilets, hot showers and a friendly, biker-welcoming owner; dark rural skies and a pub within walking distance.","area":"manton","lat":53.1594705,"lon":0.1502477},{"name":"Turks Head Touring Park","loc":"Alford, Lincolnshire","driveHint":"~1h10","adults":true,"kids":false,"club":null,"hard":false,"campervan":true,"motorhome":true,"pub":null,"desc":"Tiny 10-pitch adults-only park (the adjacent pub closed in 2025), open all year with toilets, showers and washing up; a base for the Wolds and coast.","area":"manton","lat":53.2591409,"lon":0.1777346},{"name":"Eshton Road Caravan Park","loc":"Gargrave, nr Skipton, North Yorkshire","driveHint":"~1h50","adults":false,"kids":true,"club":null,"hard":true,"campervan":true,"motorhome":true,"pub":"The Old Swan Inn, Gargrave \u00b7 ~6 min walk \u00b7 serves food","desc":"Small family-run site on the banks of the Leeds\u2013Liverpool canal at Gargrave with canal-side pitches, clean (if dated) toilet/shower block, and the village's pubs, co-op and caf\u00e9 a 5-minute walk away.","area":"manton","lat":53.9642509,"lon":-2.0360027},{"name":"Poplars Farm Site","loc":"Hulland Ward, Ashbourne, Derbyshire","driveHint":"~1h30","adults":true,"kids":false,"club":null,"hard":true,"campervan":true,"motorhome":true,"pub":"The Nags Head, Hulland Ward \u00b7 ~10 min walk \u00b7 serves food","desc":"Small adults-only farm site on the Derbyshire Dales edge with far-reaching views, staggered pitches, musical phone box, fire pits, dog-friendly walks and pods alongside touring pitches.","area":"manton","lat":53.0198946,"lon":-1.6206906},{"name":"Derbyshire Hills Campsite","loc":"Grindlow, Derbyshire","driveHint":"~1h30","adults":true,"kids":false,"club":null,"hard":true,"campervan":true,"motorhome":true,"pub":"The Bull, Foolow \u00b7 ~10 min walk \u00b7 serves food","desc":"Tiny 8-pitch adults-only site deep in Peak District countryside near Eyam, with modern heated toilet/shower block, hay-meadow views and walks from the gate to pubs and Eyam Edge.","area":"manton","lat":53.2942176,"lon":-1.7289295},{"name":"Cliff Farm Holidays","loc":"Sinnington, nr Pickering, North Yorkshire","driveHint":"~1h30","adults":false,"kids":true,"club":null,"hard":true,"campervan":true,"motorhome":true,"pub":"The Fox & Hounds, Sinnington \u00b7 15 min walk \u00b7 serves food","desc":"Quiet 30-pitch family-run working farm on the edge of the North York Moors, ten minutes from Pickering, with spotless hardstanding electric pitches, three marked farm walks and a village pub a short stroll away.","area":"manton","lat":54.2529713,"lon":-0.7942666},{"name":"Blackbrook Lodge Caravan and Campsite","loc":"Turnditch, Belper, Derbyshire","driveHint":"~1h45","adults":false,"kids":true,"club":null,"hard":true,"campervan":true,"motorhome":true,"pub":"None confirmed within a 30-min walk","desc":"Small, quiet 12-acre site in the Derbyshire Dales with a fishing lake, clean facilities and dog-walking ground \u2014 describes itself as an 'unspoilt little oasis of peace & quiet'.","area":"manton","lat":53.0152785,"lon":-1.561279},{"name":"Clumber Park Caravan and Motorhome Club Site","loc":"Worksop, Nottinghamshire","driveHint":"~50 min","adults":false,"kids":true,"club":"CAMC","hard":true,"campervan":true,"motorhome":true,"pub":"None confirmed within a 30-min walk","desc":"Caravan and Motorhome Club site set in 4,000 acres of National Trust Clumber Park (old Sherwood Forest); woodland walks and cycling from the pitch, play area, hardstanding and serviced pitches.","area":"manton","lat":53.3042362,"lon":-1.1246168},{"name":"Chatsworth Park Caravan and Motorhome Club Site","loc":"Bakewell, Derbyshire","driveHint":"~1h15","adults":false,"kids":true,"club":"CAMC","hard":true,"campervan":true,"motorhome":true,"pub":"None confirmed within a 30-min walk","desc":"Caravan and Motorhome Club site on the Chatsworth Estate with a members' gate giving direct walks into the house parkland; Peak District touring base, hardstanding pitches.","area":"manton","lat":53.2148429,"lon":-1.6758613},{"name":"Poolsbrook Country Park Caravan and Motorhome Club Site","loc":"Chesterfield, Derbyshire","driveHint":"~55 min","adults":false,"kids":true,"club":"CAMC","hard":true,"campervan":true,"motorhome":true,"pub":"None confirmed within a 30-min walk","desc":"Caravan and Motorhome Club site beside Poolsbrook Lake in the country park; Trans Pennine Trail on the doorstep, hardstanding and fully serviced pitches.","area":"manton","lat":53.2352134,"lon":-1.4264097},{"name":"Lickpenny Matlock Caravan and Motorhome Club Site","loc":"Matlock, Derbyshire","driveHint":"~1h15","adults":false,"kids":true,"club":"CAMC","hard":true,"campervan":true,"motorhome":true,"pub":"None confirmed within a 30-min walk","desc":"Caravan and Motorhome Club site on a 16-acre former nursery above Tansley village; 120+ generous hardstanding pitches among mature trees and rhododendrons; Derbyshire Dales base.","area":"manton","lat":53.1374514,"lon":-1.5544694},{"name":"Boroughbridge Camping and Caravanning Club Site","loc":"Boroughbridge, North Yorkshire","driveHint":"~1h10","adults":false,"kids":true,"club":"CCC","hard":true,"campervan":true,"motorhome":true,"pub":"None confirmed within a 30-min walk","desc":"Camping and Caravanning Club site in the Vale of York; hardstanding and fully serviced pitches, off-road dog walk; handy for the Dales and the coast.","area":"manton","lat":54.08962,"lon":-1.4159464},{"name":"Diamond House Caravan Site and CL","loc":"Fiskerton, Lincoln","driveHint":"~35 min","adults":false,"kids":true,"club":"CL","hard":true,"campervan":true,"motorhome":true,"pub":"The Carpenters Arms \u00b7 12\u201315 min walk \u00b7 serves food","desc":"10-pitch site (5-van CAMC Certificated Location + 5-van independent) beside the River Witham; Sustrans traffic-free cycle route into Lincoln; hardstanding.","area":"manton","lat":53.2512619,"lon":-0.5346947},{"name":"The Jays Caravan Park","loc":"Flixton, Scarborough, North Yorkshire","driveHint":"~1h15","adults":true,"kids":false,"club":"CE","hard":false,"campervan":true,"motorhome":true,"pub":"Village pub with meals \u00b7 walking distance \u00b7 serves food","desc":"Adults-only 6-pitch Camping and Caravanning Club Certificated Site surrounded by horse and pony fields; tranquil rural setting; near Scarborough, Filey and the North York Moors.","area":"manton","lat":54.200681,"lon":-0.3956025},{"name":"Saxdale House Farm Certificated Site","loc":"Hunmanby, Filey, North Yorkshire","driveHint":"~1h20","adults":false,"kids":true,"club":"CE","hard":false,"campervan":true,"motorhome":true,"pub":"None confirmed within a 30-min walk","desc":"Camping and Caravanning Club Certificated Site in 5 acres of quiet countryside near Hunmanby; serviced pitches, on-site shop; minutes from Filey, Scarborough and Bridlington.","area":"manton","lat":54.1739878,"lon":-0.3145738},{"name":"Brosterfield Caravan Park","loc":"Foolow, Derbyshire","driveHint":null,"adults":false,"kids":true,"club":null,"hard":false,"campervan":false,"motorhome":false,"pub":null,"desc":"Peaceful back-to-basics 48-pitch non-electric farm site with proper showers/toilets and a walkable pub.","area":"manton","lat":53.2876012,"lon":-1.7153127},{"name":"Orcaber Farm","loc":"Austwick, near Settle","driveHint":"~1h15","adults":false,"kids":true,"club":null,"hard":true,"campervan":true,"motorhome":true,"pub":"The Game Cock Inn, Austwick \u00b7 20 min walk \u00b7 serves food","desc":"Working farm in the Yorkshire Dales on the owner\u2019s own \u201copen all year round\u201d site. Reviewers shout about the night sky \u2014 the farm\u2019s own site boasts \u201cBEST NIGHT SKY VIEWS!\u201d.","area":"harrogate","lat":54.1293998,"lon":-2.3396696,"approx":true},{"name":"Haggs Bank Bunkhouse & Campsite","loc":"Alston, North Pennines","driveHint":"~1h45\u20132h","adults":false,"kids":true,"club":null,"hard":true,"campervan":true,"motorhome":true,"pub":"Local pub \u00b7 ~10 min walk (name unconfirmed)","desc":"Terraced pitches with endless views down the Nent valley plus woodland glades, in what reviewers call the last wilderness in England. Bonfires welcomed (the owner brings the wood), filtered spring water, wildflower meadow.","area":"harrogate","lat":54.8124898,"lon":-2.4409724,"approx":true},{"name":"Bleatarn Farm","loc":"Crosby on Eden, Hadrian\u2019s Wall country","driveHint":"~1h45","adults":false,"kids":true,"club":null,"hard":true,"campervan":true,"motorhome":true,"pub":"The Stag Inn, Low Crosby \u00b7 ~30 min walk \u00b7 serves food","desc":"C&CC certificated site in Hadrian\u2019s Wall country with views to the Lake District fells and the Pennines. Heated shower block, honesty box, properly peaceful.","area":"harrogate","lat":54.9277835,"lon":-2.8588882,"approx":true},{"name":"Calder Farm","loc":"Bolton-by-Bowland, Forest of Bowland","driveHint":"~1h10","adults":false,"kids":true,"club":null,"hard":true,"campervan":true,"motorhome":true,"pub":"The Coach and Horses \u00b7 10 min walk \u00b7 serves food","desc":"Working farm with Pendle Hill views; the owner\u2019s site says \u201cWe are open all year round!\u201d. Firepits for hire for the evening.","area":"harrogate","lat":53.9618273,"lon":-2.3465247,"approx":true},{"name":"Three Acres","loc":"Harrogate (Staupes Rd)","driveHint":"~20 min","adults":true,"kids":false,"club":null,"hard":true,"campervan":true,"motorhome":true,"pub":"None confirmed within a 30-min walk","desc":"Quiet rural certificated site twenty minutes out; campfires allowed and adults only, so properly peaceful.","area":"harrogate","lat":53.9921491,"lon":-1.5391039,"approx":true},{"name":"Eshton Road","loc":"Gargrave, near Skipton","driveHint":"~40 min","adults":false,"kids":true,"club":null,"hard":true,"campervan":true,"motorhome":true,"pub":"The Swan, Gargrave \u00b7 ~15 min walk \u00b7 serves food","desc":"Canal-side site right on the Pennine Way, with a refurbished shower block (2023).","area":"harrogate","lat":53.9862692,"lon":-2.1105185,"approx":true},{"name":"Alanholme","loc":"Long Marton, Eden Valley","driveHint":"~1h20","adults":false,"kids":true,"club":null,"hard":true,"campervan":true,"motorhome":true,"pub":"The Masons Arms, Long Marton \u00b7 2 min walk \u00b7 serves food","desc":"Eden Valley site with the pub two minutes\u2019 walk away. Small, friendly, well-kept.","area":"harrogate","lat":54.64111,"lon":-2.498311,"approx":true},{"name":"Sykeside","loc":"Penrith, Dovedale Valley","driveHint":"~2h","adults":false,"kids":true,"club":null,"hard":true,"campervan":true,"motorhome":true,"pub":"The Brotherswater Inn (on site) \u00b7 serves food","desc":"Fell views in the Dovedale Valley with the Brotherswater Inn on site and fire pits welcome. 90+ pitches, so not small \u2014 but the reviews are raves.","area":"harrogate","lat":54.6861365,"lon":-2.7569152,"approx":true},{"name":"Grandie Caravan Park","loc":"Dufton, near Appleby","driveHint":"~1h35","adults":false,"kids":true,"club":null,"hard":true,"campervan":true,"motorhome":true,"pub":"The Stag Inn, Dufton \u00b7 3 min walk \u00b7 serves food","desc":"Six pitches at the east end of Dufton village green with outstanding views over Dufton Ghyll wood, on the Pennine Way. Quirky Hobbit Huts for hire too. \u201cSuper quiet on a night time.\u201d","area":"harrogate","lat":54.6194534,"lon":-2.481086,"approx":true},{"name":"How Stean Gorge","loc":"Lofthouse, Nidderdale","driveHint":null,"adults":false,"kids":true,"club":null,"hard":false,"campervan":false,"motorhome":false,"pub":null,"desc":"Gorge, caves, fire pits and caf\u00e9 on site; reviewers confirm \u201cplenty of clean toilets\u2026 always able to access a free hot shower\u201d.","area":"harrogate","lat":53.7292788,"lon":-1.4975139,"approx":true},{"name":"Blackburn Farm","loc":"Hawes, Wensleydale","driveHint":null,"adults":false,"kids":true,"club":null,"hard":false,"campervan":false,"motorhome":false,"pub":null,"desc":"9/10 (11) with toilets and showers claimed all year on ukcampsite.","area":"harrogate","lat":54.3041258,"lon":-2.1965261,"approx":true},{"name":"The Crown","loc":"Hutton-le-Hole, North York Moors","driveHint":null,"adults":false,"kids":true,"club":null,"hard":false,"campervan":false,"motorhome":false,"pub":null,"desc":"9/10 (21); 4 pitches in a gorgeous moors village; open all year.","area":"harrogate","lat":54.3005955,"lon":-0.9184121,"approx":true},{"name":"Twilite Leisure Park","loc":"near Banbury, Oxfordshire","driveHint":"~1h","adults":true,"kids":false,"club":null,"hard":true,"campervan":true,"motorhome":true,"pub":"The Plough, Adderbury \u00b7 ~20 min walk \u00b7 serves food","desc":"Quirky 21-pitch adults-only site beside the Oxford Canal on a former Victorian pipe and brickworks \u2014 the shower block is built inside a restored brick kiln.","area":"cheltenham","lat":52.0601807,"lon":-1.3402795,"approx":true},{"name":"Twitey's Camping & Glamping Meadows","loc":"near Stratford-upon-Avon","driveHint":null,"adults":false,"kids":true,"club":null,"hard":false,"campervan":false,"motorhome":false,"pub":null,"desc":"Secluded wildflower-meadow site with mown private pitches, fire pits, play areas and glamping; 9/10 (22) ukcampsite, 5.0 Google.","area":"cheltenham","lat":52.1927803,"lon":-1.70634,"approx":true},{"name":"Seren Bach Campsite","loc":"Hay-on-Wye, Brecon Beacons fringe","driveHint":null,"adults":false,"kids":true,"club":null,"hard":false,"campervan":false,"motorhome":false,"pub":null,"desc":"Small boutique family-friendly campsite at the old Radnor Arms; all-year, hot showers, campfires, 9/10 (14); tents and small campervans only.","area":"cheltenham","lat":52.0744595,"lon":-3.1243132,"approx":true},{"name":"Broadstone Park Camping and Fishery","loc":"near Coleford, Forest of Dean","driveHint":null,"adults":false,"kids":true,"club":null,"hard":false,"campervan":false,"motorhome":false,"pub":null,"desc":"Small, peaceful farm site on the England/Wales border with fishing lakes, an on-site bar/cafe and stone-baked pizza, 9.4 Pitchup, 9/10 ukcampsite, very kid-friendly.","area":"cheltenham","lat":51.7938786,"lon":-2.6183238,"approx":true},{"name":"Bath Chew Valley Caravan Park","loc":"Bishop Sutton, Chew Valley","driveHint":null,"adults":false,"kids":true,"club":null,"hard":false,"campervan":false,"motorhome":false,"pub":null,"desc":"Peaceful adults-only, garden-themed touring park between Bath and Bristol, with a heated toilet block and fully serviced hardstandings.","area":"cheltenham","lat":51.3340381,"lon":-2.5993631,"approx":true},{"name":"The Crawley Inn Campsite","loc":"near Witney, Oxfordshire","driveHint":null,"adults":false,"kids":true,"club":null,"hard":false,"campervan":false,"motorhome":false,"pub":null,"desc":"Tiny pub campsite at the Crawley Inn, 8/10 (6), listed open all year.","area":"cheltenham","lat":51.7838848,"lon":-1.4852861,"approx":true},{"name":"Mount Pleasant Glamping and Camping","loc":"Stanton Dale, Ashbourne, Derbyshire","driveHint":"~1h30","adults":false,"kids":true,"club":null,"hard":false,"campervan":true,"motorhome":true,"pub":"None confirmed within a 30-min walk","desc":"Delightfully quirky working-farm campsite on the Peak District edge with an on-site machinery museum, donkeys, pigs and chickens, fire pits for hire and big sunset views; 15 grass pitches for tents, campervans and motorhomes.","area":"manton","lat":52.9445501,"lon":-1.3045165,"approx":true},{"name":"Oak Tree Holiday Park and Fishery","loc":"Haxey, Lincolnshire (Isle of Axholme)","driveHint":"~35 min","adults":true,"kids":false,"club":null,"hard":true,"campervan":true,"motorhome":true,"pub":"The Kings Arms, Haxey \u00b7 ~25\u201330 min walk","desc":"Adults-only 19-pitch touring park with fishing lakes, level gravel/grass pitches, modern shower/toilet block and campfires allowed; dog run and friendly wardens earn its perfect ukcampsite score.","area":"manton","lat":53.4886326,"lon":-0.8346784,"approx":true},{"name":"The Wolds Camping and Caravan Site","loc":"Greetham, Horncastle, Lincolnshire","driveHint":"~50 min","adults":false,"kids":true,"club":null,"hard":false,"campervan":true,"motorhome":true,"pub":"None confirmed within a 30-min walk","desc":"Tiny working-farm site (5 vans plus tents) deep in the Wolds with shepherd's huts, resident horses and peacocks, showers, toilets and electric hook-ups; peaceful and idiosyncratic.","area":"manton","lat":52.7197281,"lon":-0.6295232,"approx":true},{"name":"Daphne's Orchard","loc":"Hemington, Derbyshire","driveHint":"~1h10","adults":true,"kids":false,"club":null,"hard":true,"campervan":true,"motorhome":true,"pub":"The Jolly Sailor \u00b7 3 min walk \u00b7 serves food","desc":"Small adults-only (30+) wildlife-retreat orchard with a kingfisher pond, luxury upgraded toilet/shower block, hardstanding and grass pitches, village pub 3 minutes' walk.","area":"manton","lat":52.45472,"lon":-0.3945606,"approx":true},{"name":"Beech Croft Farm","loc":"Blackwell in the Peak, Buxton, Derbyshire","driveHint":"~1h35","adults":false,"kids":true,"club":null,"hard":true,"campervan":true,"motorhome":true,"pub":"The Church Inn, Chelmorton \u00b7 30 min walk \u00b7 serves food","desc":"Family-run farm site between Buxton and Bakewell with underfloor-heated spotless toilet/shower block, huge hardstanding pitches with 16A hook-up, on-site shop and cafe, and direct Monsal Trail access.","area":"manton","lat":53.2496002,"lon":-1.8036545,"approx":true},{"name":"Kettlewell Camping","loc":"Kettlewell, Upper Wharfedale","driveHint":null,"adults":false,"kids":true,"club":null,"hard":false,"campervan":false,"motorhome":false,"pub":null,"desc":"Much-loved 40-pitch tent-only Dales site on the edge of Kettlewell with fire pits and sweeping Upper Wharfedale views, 9/10 from 70 reviews.","area":"manton","lat":54.1466579,"lon":-2.0492297,"approx":true},{"name":"The Nurseries Caravan Park","loc":"near Alford, Lincolnshire","driveHint":null,"adults":false,"kids":true,"club":null,"hard":false,"campervan":false,"motorhome":false,"pub":null,"desc":"Adults-only park near Alford, 10/10 from 96 reviews, with cafe on site, ~1h15.","area":"manton","lat":53.2591409,"lon":0.1777346,"approx":true},{"name":"The Bickerton Poacher","loc":"Bulkeley, Malpas, Cheshire","driveHint":null,"adults":false,"kids":true,"club":null,"hard":false,"campervan":false,"motorhome":false,"pub":null,"desc":"Pub campsite \u2014 open all year, tent+motorhome pitches, pub food and Sandstone Trail access; 8/10 from 48 reviews.","area":"manton","lat":53.0860367,"lon":-2.7006679,"approx":true},{"name":"Border Forest Holiday Park","loc":"Kielder Forest edge, Northumberland","driveHint":null,"adults":false,"kids":true,"club":null,"hard":false,"campervan":false,"motorhome":false,"pub":null,"desc":"Secluded park on the edge of Kielder Forest \u2014 10 hardstanding touring pitches by the river Rede. 4.9 (47): \u201cPeace, perfect peace.\u201d","area":"harrogate","lat":55.2264649,"lon":-2.5725408,"approx":true}];
+
+const $ = s => document.querySelector(s);
+let mode = 'time', who = 'all', clubOn = true, hardOnly = true;
+let userLat = null, userLon = null;
+
+// Mode toggle
+document.querySelectorAll('#modeSeg button').forEach(b => b.onclick = () => {
+  document.querySelectorAll('#modeSeg button').forEach(x => x.classList.remove('on'));
+  b.classList.add('on'); mode = b.dataset.mode;
+  $('#timeCtl').style.display = mode === 'time' ? '' : 'none';
+  $('#distCtl').style.display = mode === 'dist' ? '' : 'none';
+});
+// Who toggle
+document.querySelectorAll('#whoSeg button').forEach(b => b.onclick = () => {
+  document.querySelectorAll('#whoSeg button').forEach(x => x.classList.remove('on'));
+  b.classList.add('on'); who = b.dataset.who;
+});
+// Club + hardstanding toggles
+$('#clubToggle').onclick = e => { clubOn = !clubOn; e.target.classList.toggle('toggle-on', clubOn); e.target.textContent = clubOn ? '⛺ Club sites included' : '⛺ Club sites hidden'; };
+$('#hardToggle').onclick = e => { hardOnly = !hardOnly; e.target.classList.toggle('toggle-on', hardOnly); e.target.textContent = hardOnly ? 'Hard standing only' : 'Any surface'; };
+// Sliders
+$('#timeSlider').oninput = e => { const v = +e.target.value; $('#timeVal').textContent = v >= 60 ? (v/60).toFixed(v%60?1:0).replace(/\.0$/,'') + ' hrs' : v + ' min'; };
+$('#distSlider').oninput = e => { $('#distVal').textContent = e.target.value + ' miles'; };
+
+// Address autocomplete (via ParkSafe worker proxy — same as ParkSafe app)
+let acTimer = null;
+$('#addr').addEventListener('input', () => {
+  clearTimeout(acTimer);
+  userLat = null; userLon = null; // typed manually — clear any GPS fix
+  const q = $('#addr').value.trim();
+  const box = $('#acBox');
+  if (q.length < 3) { box.style.display = 'none'; return; }
+  acTimer = setTimeout(async () => {
+    try {
+      const r = await fetch(`https://wildskies-votes.wildskies-votes.workers.dev/api/autocomplete?input=${encodeURIComponent(q)}`).then(r => r.json());
+      const sug = r.suggestions || [];
+      if (!sug.length) { box.style.display = 'none'; return; }
+      box.innerHTML = sug.map((s, i) => `<div data-i="${i}" style="padding:.5rem .7rem; cursor:pointer; border-bottom:1px solid #eee;">${s.text}</div>`).join('');
+      box.style.display = '';
+      box.querySelectorAll('div').forEach(d => {
+        d.onclick = () => { $('#addr').value = sug[+d.dataset.i].text; box.style.display = 'none'; };
+      });
+    } catch(e) { box.style.display = 'none'; }
+  }, 300);
+});
+document.addEventListener('click', e => { if (!e.target.closest('#acBox') && e.target.id !== 'addr') $('#acBox').style.display = 'none'; });
+
+// Map toggle
+let mapOn = true;
+$('#locBtn').onclick = () => {
+  if (!navigator.geolocation) { alert('Geolocation not supported.'); return; }
+  const b = $('#locBtn'); b.textContent = 'Locating…'; b.style.pointerEvents = 'none';
+  navigator.geolocation.getCurrentPosition(async pos => {
+    userLat = pos.coords.latitude; userLon = pos.coords.longitude;
+    try {
+      const rev = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${userLat}&lon=${userLon}`, {headers:{'Accept':'application/json'}}).then(r => r.json());
+      $('#addr').value = rev.display_name || `${userLat.toFixed(4)}, ${userLon.toFixed(4)}`;
+    } catch(e) { $('#addr').value = `${userLat.toFixed(4)}, ${userLon.toFixed(4)}`; }
+    b.innerHTML = '◉ Detect my location'; b.style.pointerEvents = '';
+  }, () => { b.innerHTML = '◉ Detect my location'; b.style.pointerEvents = ''; alert('Could not get location.'); },
+  {enableHighAccuracy: true, maximumAge: 0, timeout: 20000});
+};
+
+function haversine(a, b, c, d) {
+  const R = 3959, p1 = a * Math.PI/180, p2 = c * Math.PI/180;
+  const dp = (c-a) * Math.PI/180, dl = (d-b) * Math.PI/180;
+  const h = Math.sin(dp/2)**2 + Math.cos(p1)*Math.cos(p2)*Math.sin(dl/2)**2;
+  return 2 * R * Math.asin(Math.sqrt(h)); // miles
+}
+const driveMins = miles => Math.round(miles / 40 * 60);
+const fmtDrive = m => m >= 60 ? `${Math.floor(m/60)}h ${m%60 ? m%60+'m' : ''}`.trim() : `${m} min`;
+
+$('#go').onclick = async () => {
+  const btn = $('#go'); btn.disabled = true; btn.textContent = 'Searching…';
+  $('#results').innerHTML = '<div class="loading">Finding pitches…</div>';
+  try {
+    // Geocode if no GPS fix
+    if (userLat === null) {
+      const q = $('#addr').value.trim();
+      if (!q) throw new Error('Enter a location or detect yours first.');
+      const coordM = q.match(/^(-?\d+\.?\d*)\s*,\s*(-?\d+\.?\d*)$/);
+      if (coordM) { userLat = +coordM[1]; userLon = +coordM[2]; }
+      else {
+        const g = await fetch(`https://nominatim.openstreetmap.org/search?format=json&limit=1&q=${encodeURIComponent(q)}`, {headers:{'Accept':'application/json'}}).then(r => r.json());
+        if (!g.length) throw new Error('Location not found.');
+        userLat = +g[0].lat; userLon = +g[0].lon;
+      }
+    }
+    const maxTime = +$('#timeSlider').value, maxDist = +$('#distSlider').value;
+    let list = SITES.map(s => {
+      const mi = haversine(userLat, userLon, s.lat, s.lon);
+      return {...s, miles: mi, mins: driveMins(mi)};
+    }).filter(s => mode === 'time' ? s.mins <= maxTime : s.miles <= maxDist);
+    // Who filter
+    if (who === 'adults') list = list.filter(s => s.adults);
+    if (who === 'kids') list = list.filter(s => !s.adults);
+    // Club filter
+    if (!clubOn) list = list.filter(s => !s.club);
+    // Hardstanding
+    if (hardOnly) list = list.filter(s => s.hard);
+    list.sort((a, b) => mode === 'time' ? a.mins - b.mins : a.miles - b.miles);
+    render(list);
+  } catch(e) {
+    $('#results').innerHTML = `<div class="panel"><h2>Something went wrong</h2><p>${e.message}</p></div>`;
+  } finally { btn.disabled = false; btn.textContent = 'Find my pitch →'; }
+};
+
+function render(list) {
+  let html = `<div class="count">${list.length} site${list.length === 1 ? '' : 's'} found</div>`;
+  html += `<div class="row" style="margin-bottom:.6rem;"><button class="chip ${mapOn ? 'toggle-on' : ''}" id="mapToggle">${mapOn ? '🗺 Hide map' : '🗺 Show map'}</button></div>`;
+  if (list.length && mapOn) html += `<div id="map"></div>`;
+  list.forEach(s => {
+    const tags = [];
+    if (s.club) tags.push(`<span class="tag club">⛺ ${{CAMC:'CAMC',CCC:'C&CC',CL:'Cert. Loc.',CE:'Cert. Site'}[s.club] || s.club}</span>`);
+    if (s.adults) tags.push(`<span class="tag adults">Adults only</span>`); else tags.push(`<span class="tag kids">Family friendly</span>`);
+    if (s.hard) tags.push(`<span class="tag hard">Hard standing</span>`);
+    html += `<div class="card"><h3>${s.name}</h3><p class="meta">${s.loc}</p>`
+      + `<p><span class="dist">${mode === 'time' ? '≈ ' + fmtDrive(s.mins) + ' drive' : s.miles.toFixed(0) + ' miles'}</span> <span class="meta">(${mode === 'time' ? s.miles.toFixed(0) + ' mi' : '≈ ' + fmtDrive(s.mins) + ' drive'})</span></p>`
+      + `<div>${tags.join('')}</div>`
+      + (s.pub ? `<p class="meta" style="margin-top:.3rem;">🍺 ${s.pub}</p>` : '')
+      + (s.desc ? `<p style="font-size:.9rem; margin-top:.3rem;">${s.desc}</p>` : '')
+      + `</div>`;
+  });
+  if (!list.length) html += `<div class="panel"><h2>No pitches in range</h2><p>Try widening the drive time or distance — or toggle the filters.</p></div>`;
+  $('#results').innerHTML = html;
+  const mt = document.getElementById('mapToggle');
+  if (mt) mt.onclick = () => { mapOn = !mapOn; render(list); };
+  const mapEl = document.getElementById('map');
+  if (mapEl && list.length && window.L) {
+    const map = L.map('map');
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {attribution: '© OpenStreetMap'}).addTo(map);
+    const bounds = [[userLat, userLon]];
+    L.marker([userLat, userLon], {icon: L.divIcon({className:'', html:'<div style="background:#c9a227;color:#fff;border:2px solid #fff;border-radius:50%;width:26px;height:26px;display:flex;align-items:center;justify-content:center;font-weight:bold;">★</div>', iconSize:[26,26], iconAnchor:[13,13]})}).addTo(map).bindPopup('You are here');
+    list.forEach(s => {
+      L.marker([s.lat, s.lon]).addTo(map).bindPopup(`<b>${s.name}</b><br>${mode === 'time' ? '≈ '+fmtDrive(s.mins)+' drive' : s.miles.toFixed(0)+' miles'}`);
+      bounds.push([s.lat, s.lon]);
+    });
+    map.fitBounds(bounds, {padding: [30, 30]});
+  }
+}
+</script>
+</body>
+</html>
